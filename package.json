@@ -1,0 +1,35 @@
+{
+  "name": "mxchatbot-unified-search",
+  "version": "1.0.0",
+  "description": "MXchatbot Unified Search API - Aggregates search results from multiple knowledge sources",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "search",
+    "unified",
+    "zendesk",
+    "documentation",
+    "knowledge-base",
+    "federated-search"
+  ],
+  "author": "MaintainX",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.4.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
