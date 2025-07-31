@@ -456,6 +456,103 @@ function stripHtmlAndCreateSnippet(htmlText, maxLength = 200) {
 }
 
 /**
+ * PUBLIC SEARCH ENDPOINT (NO AUTH)
+ * For testing and simple integrations
+ */
+app.post('/search', async (req, res) => {
+  try {
+    const { 
+      query, 
+      limit = 10, 
+      filters = {}, 
+      sources = ['zendesk', 'docs', 'knowledge_base'],
+      include_snippets = true,
+      sort_by = 'relevance'
+    } = req.body;
+    
+    console.log('🔍 Public search request:', {
+      query,
+      limit,
+      sources: sources.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Validate input
+    if (!query || typeof query !== 'string' || query.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        error: 'Query must be at least 2 characters long',
+        query: query || ''
+      });
+    }
+    
+    const searchPromises = [];
+    const enabledSources = [];
+    
+    // Search Zendesk Help Center
+    if (sources.includes('zendesk')) {
+      enabledSources.push('zendesk');
+      searchPromises.push(searchZendesk(query, Math.ceil(limit * 0.4))); // 40% of results from Zendesk
+    }
+    
+    // Search Documentation
+    if (sources.includes('docs')) {
+      enabledSources.push('docs');
+      searchPromises.push(searchDocumentation(query, Math.ceil(limit * 0.3))); // 30% from docs
+    }
+    
+    // Search Knowledge Base
+    if (sources.includes('knowledge_base')) {
+      enabledSources.push('knowledge_base');
+      searchPromises.push(searchKnowledgeBase(query, Math.ceil(limit * 0.3))); // 30% from KB
+    }
+    
+    // Execute all searches in parallel
+    const searchResults = await Promise.allSettled(searchPromises);
+    
+    // Combine and process results
+    let allResults = [];
+    
+    searchResults.forEach((result, index) => {
+      if (result.status === 'fulfilled' && result.value.length > 0) {
+        allResults = allResults.concat(result.value);
+        console.log(`✅ ${enabledSources[index]} search: ${result.value.length} results`);
+      } else {
+        console.log(`⚠️ ${enabledSources[index]} search failed:`, result.reason?.message || 'Unknown error');
+      }
+    });
+    
+    // Rank and filter results
+    const rankedResults = rankResults(allResults, query);
+    const finalResults = rankedResults.slice(0, limit);
+    
+    console.log(`🎯 Public search completed: ${finalResults.length} results from ${enabledSources.length} sources`);
+    
+    // Return unified response
+    res.json({
+      success: true,
+      results: finalResults,
+      total: allResults.length,
+      returned: finalResults.length,
+      query: query.trim(),
+      sources: enabledSources,
+      timestamp: new Date().toISOString(),
+      api_version: 'public_v1'
+    });
+    
+  } catch (error) {
+    console.error('❌ Public search error:', error.message);
+    
+    res.status(500).json({
+      success: false,
+      error: 'Search service error',
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * HEALTH CHECK ENDPOINT
  */
 app.get('/health', (req, res) => {
