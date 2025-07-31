@@ -206,114 +206,100 @@ async function searchZendesk(query, limit = 5) {
 
 /**
  * SEARCH DOCUMENTATION
- * Simulated documentation search - replace with actual documentation API
+ * Uses Zendesk API to search for documentation-style articles
+ * Focuses on articles tagged with documentation or technical content
  */
 async function searchDocumentation(query, limit = 3) {
-  // Simulate documentation search results
-  // In a real implementation, this would call your documentation system API
-  
-  const mockDocs = [
-    {
-      id: 'docs_001',
-      title: 'Getting Started Guide',
-      url: 'https://docs.maintainx.com/getting-started',
-      content: 'Complete guide for new users to get started with MaintainX platform...',
-      category: 'Getting Started'
-    },
-    {
-      id: 'docs_002', 
-      title: 'API Documentation',
-      url: 'https://docs.maintainx.com/api',
-      content: 'Comprehensive API documentation for developers...',
-      category: 'Developer'
-    },
-    {
-      id: 'docs_003',
-      title: 'Troubleshooting Common Issues',
-      url: 'https://docs.maintainx.com/troubleshooting',
-      content: 'Solutions for the most common issues users encounter...',
-      category: 'Support'
-    }
-  ];
-  
-  // Simple keyword matching simulation
-  const relevantDocs = mockDocs.filter(doc => 
-    doc.title.toLowerCase().includes(query.toLowerCase()) ||
-    doc.content.toLowerCase().includes(query.toLowerCase())
-  );
-  
-  return relevantDocs.slice(0, limit).map(doc => ({
-    id: doc.id,
-    title: doc.title,
-    url: doc.url,
-    snippet: stripHtmlAndCreateSnippet(doc.content, 200),
-    content: doc.content,
-    score: calculateRelevanceScore(doc, query),
-    source: 'docs',
-    category: doc.category,
-    section: null,
-    last_updated: new Date().toISOString(),
-    metadata: {
-      source_type: 'documentation'
-    }
-  }));
+  try {
+    // Search Zendesk with focus on documentation-style content
+    const response = await axios.get(
+      `${ZENDESK_BASE}/help_center/articles/search.json`,
+      {
+        params: {
+          query: `${query.trim()} (documentation OR guide OR manual OR tutorial OR setup)`,
+          locale: 'en-us',
+          per_page: limit
+        },
+        headers: {
+          Authorization: `Basic ${ZENDESK_AUTH}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      }
+    );
+    
+    return response.data.results.map(article => ({
+      id: `docs_${article.id}`,
+      title: article.title,
+      url: article.html_url,
+      snippet: stripHtmlAndCreateSnippet(article.body, 200),
+      content: article.body,
+      score: (article.score || 0) * 0.9, // Slightly lower priority than main Zendesk results
+      source: 'docs',
+      category: 'Documentation',
+      section: article.section_id,
+      last_updated: article.updated_at,
+      metadata: {
+        locale: article.locale,
+        created_at: article.created_at,
+        article_id: article.id,
+        search_type: 'documentation'
+      }
+    }));
+    
+  } catch (error) {
+    console.error('Documentation search error:', error.message);
+    return [];
+  }
 }
 
 /**
  * SEARCH KNOWLEDGE BASE
- * Simulated knowledge base search - replace with actual KB API
+ * Uses Zendesk API to search for FAQ and knowledge base style articles
+ * Focuses on articles tagged with troubleshooting, FAQ, or how-to content
  */
 async function searchKnowledgeBase(query, limit = 3) {
-  // Simulate knowledge base search results
-  // In a real implementation, this would call your knowledge base API
-  
-  const mockKB = [
-    {
-      id: 'kb_001',
-      title: 'How to Reset Your Password',
-      content: 'Step-by-step instructions for resetting your account password...',
-      category: 'Account Management',
-      tags: ['password', 'account', 'security']
-    },
-    {
-      id: 'kb_002',
-      title: 'Setting Up Work Orders',
-      content: 'Complete guide to creating and managing work orders in MaintainX...',
-      category: 'Work Orders',
-      tags: ['work-orders', 'setup', 'maintenance']
-    },
-    {
-      id: 'kb_003',
-      title: 'Mobile App Installation',
-      content: 'How to download and install the MaintainX mobile application...',
-      category: 'Mobile',
-      tags: ['mobile', 'app', 'installation']
-    }
-  ];
-  
-  // Simple keyword matching simulation
-  const relevantKB = mockKB.filter(item => 
-    item.title.toLowerCase().includes(query.toLowerCase()) ||
-    item.content.toLowerCase().includes(query.toLowerCase()) ||
-    item.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()))
-  );
-  
-  return relevantKB.slice(0, limit).map(item => ({
-    id: item.id,
-    title: item.title,
-    url: `https://help.maintainx.com/kb/${item.id}`,
-    snippet: stripHtmlAndCreateSnippet(item.content, 200),
-    content: item.content,
-    score: calculateRelevanceScore(item, query),
-    source: 'knowledge_base',
-    category: item.category,
-    section: null,
-    last_updated: new Date().toISOString(),
-    metadata: {
-      tags: item.tags,
-      source_type: 'knowledge_base'
-    }
-  }));
+  try {
+    // Search Zendesk with focus on FAQ and troubleshooting content
+    const response = await axios.get(
+      `${ZENDESK_BASE}/help_center/articles/search.json`,
+      {
+        params: {
+          query: `${query.trim()} (FAQ OR troubleshooting OR "how to" OR problem OR issue OR error)`,
+          locale: 'en-us',
+          per_page: limit
+        },
+        headers: {
+          Authorization: `Basic ${ZENDESK_AUTH}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 5000
+      }
+    );
+    
+    return response.data.results.map(article => ({
+      id: `kb_${article.id}`,
+      title: article.title,
+      url: article.html_url,
+      snippet: stripHtmlAndCreateSnippet(article.body, 200),
+      content: article.body,
+      score: (article.score || 0) * 0.8, // Lower priority than main Zendesk results
+      source: 'knowledge_base',
+      category: 'Knowledge Base',
+      section: article.section_id,
+      last_updated: article.updated_at,
+      metadata: {
+        locale: article.locale,
+        created_at: article.created_at,
+        article_id: article.id,
+        search_type: 'knowledge_base'
+      }
+    }));
+    
+  } catch (error) {
+    console.error('Knowledge base search error:', error.message);
+    return [];
+  }
 }
 
 /**
