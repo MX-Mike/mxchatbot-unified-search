@@ -206,49 +206,100 @@ async function searchZendesk(query, limit = 5) {
 
 /**
  * SEARCH DOCUMENTATION
- * Uses Zendesk API to search for documentation-style articles
- * Focuses on articles tagged with documentation or technical content
+ * Uses real Docusaurus search index from help.getmaintainx.com
+ * Searches through the actual documentation site content
  */
 async function searchDocumentation(query, limit = 3) {
   try {
-    // Search Zendesk with focus on documentation-style content
-    const response = await axios.get(
-      `${ZENDESK_BASE}/help_center/articles/search.json`,
+    console.log(`🔍 Searching Docusaurus documentation for: "${query}"`);
+    
+    // Fetch the Docusaurus search index
+    const indexResponse = await axios.get(
+      'https://help.getmaintainx.com/search-index.json',
       {
-        params: {
-          query: `${query.trim()} (documentation OR guide OR manual OR tutorial OR setup)`,
-          locale: 'en-us',
-          per_page: limit
-        },
+        timeout: 5000,
         headers: {
-          Authorization: `Basic ${ZENDESK_AUTH}`,
-          'Content-Type': 'application/json'
-        },
-        timeout: 5000
+          'User-Agent': 'MXchatbot-UnifiedSearch/1.0'
+        }
       }
     );
     
-    return response.data.results.map(article => ({
-      id: `docs_${article.id}`,
-      title: article.title,
-      url: article.html_url,
-      snippet: stripHtmlAndCreateSnippet(article.body, 200),
-      content: article.body,
-      score: (article.score || 0) * 0.9, // Slightly lower priority than main Zendesk results
-      source: 'docs',
-      category: 'Documentation',
-      section: article.section_id,
-      last_updated: article.updated_at,
-      metadata: {
-        locale: article.locale,
-        created_at: article.created_at,
-        article_id: article.id,
-        search_type: 'documentation'
+    if (!indexResponse.data || !Array.isArray(indexResponse.data)) {
+      console.warn('Invalid Docusaurus search index format');
+      return [];
+    }
+    
+    const searchIndex = indexResponse.data[0]; // Get the first search index
+    if (!searchIndex || !searchIndex.documents) {
+      console.warn('No documents found in Docusaurus search index');
+      return [];
+    }
+    
+    // Search through documents
+    const queryLower = query.toLowerCase().trim();
+    const queryWords = queryLower.split(/\s+/).filter(word => word.length > 2);
+    
+    const results = [];
+    
+    searchIndex.documents.forEach(doc => {
+      if (!doc.t || !doc.u) return; // Skip docs without title or URL
+      
+      const titleLower = doc.t.toLowerCase();
+      const breadcrumbText = doc.b ? doc.b.join(' ').toLowerCase() : '';
+      
+      let score = 0;
+      
+      // Check for exact phrase match in title (highest priority)
+      if (titleLower.includes(queryLower)) {
+        score += 100;
       }
-    }));
+      
+      // Check for exact phrase match in breadcrumbs
+      if (breadcrumbText.includes(queryLower)) {
+        score += 50;
+      }
+      
+      // Check for individual word matches
+      queryWords.forEach(word => {
+        if (titleLower.includes(word)) {
+          score += 20;
+        }
+        if (breadcrumbText.includes(word)) {
+          score += 10;
+        }
+      });
+      
+      // Only include if we have some relevance
+      if (score > 0) {
+        results.push({
+          id: `docs_${doc.i}`,
+          title: doc.t,
+          url: `https://help.getmaintainx.com${doc.u}`,
+          snippet: `${doc.b ? doc.b.join(' › ') : 'Documentation'} - ${doc.t}`,
+          content: `${doc.t} - ${doc.b ? doc.b.join(', ') : ''}`,
+          score: score * 0.9, // Slightly lower than Zendesk results
+          source: 'docs',
+          category: doc.b && doc.b.length > 0 ? doc.b[0] : 'Documentation',
+          section: doc.b && doc.b.length > 1 ? doc.b[1] : null,
+          last_updated: new Date().toISOString(), // Docusaurus doesn't provide timestamps
+          metadata: {
+            breadcrumbs: doc.b || [],
+            docusaurus_id: doc.i,
+            search_type: 'docusaurus'
+          }
+        });
+      }
+    });
+    
+    // Sort by score and limit results
+    results.sort((a, b) => b.score - a.score);
+    const limitedResults = results.slice(0, limit);
+    
+    console.log(`✅ Docusaurus search found ${limitedResults.length} results`);
+    return limitedResults;
     
   } catch (error) {
-    console.error('Documentation search error:', error.message);
+    console.error('Docusaurus documentation search error:', error.message);
     return [];
   }
 }
@@ -451,7 +502,7 @@ app.listen(PORT, () => {
 
 📋 Available Sources:
    ✅ Zendesk Help Center (${process.env.ZENDESK_SUBDOMAIN || 'NOT_CONFIGURED'})
-   ✅ Documentation (Simulated)
+   ✅ Docusaurus Documentation (help.getmaintainx.com)
    ✅ Knowledge Base (Simulated)
 
 🔍 Unified Search Features:
