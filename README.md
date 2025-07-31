@@ -137,13 +137,13 @@ Health check endpoint for monitoring.
    - Full text search with relevance scoring
    - Rich metadata and categorization
 
-2. **Documentation** (Simulated - Ready for Integration)
-   - Mock documentation search
-   - Replace with your actual docs API
-   - Supports categorization and tagging
+2. **Documentation** (Production Ready - Docusaurus Integration)
+   - Real Docusaurus search via help.getmaintainx.com search index
+   - Searches actual documentation content with breadcrumb navigation
+   - Relevance scoring based on title and category matches
 
 3. **Knowledge Base** (Simulated - Ready for Integration)
-   - Mock knowledge base search  
+   - Mock knowledge base search via Zendesk with FAQ keywords
    - Replace with your actual KB API
    - Tag-based searching and filtering
 

@@ -466,8 +466,8 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     sources: {
       zendesk: !!process.env.ZENDESK_SUBDOMAIN,
-      docs: true, // Simulated
-      knowledge_base: true // Simulated
+      docs: true, // Real Docusaurus integration
+      knowledge_base: true // Simulated via Zendesk
     }
   });
 });
